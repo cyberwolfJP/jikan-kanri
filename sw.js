@@ -1,6 +1,6 @@
 // オフラインでも起動できるようにするためのファイル。
 // ツールを更新したら VERSION の数字を1つ上げてアップし直してください。
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'jikan-kanri-' + VERSION;
 const APP = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
@@ -10,7 +10,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('jikan-kanri-') && k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -21,6 +21,8 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   // シフト表（shift フォルダ）は別アプリなので、このファイルでは扱わない
   if (url.origin === location.origin && url.pathname.includes('/shift/')) return;
+  // フラッシュ通知（flash-alarm フォルダ）も別アプリ
+  if (url.origin === location.origin && url.pathname.includes('/flash-alarm/')) return;
 
   // 画面本体：ネットにつながっていれば最新版、つながらなければ保存済みの版
   if (req.mode === 'navigate') {

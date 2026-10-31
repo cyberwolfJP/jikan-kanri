@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="フラッシュ通知">
+<meta name="theme-color" content="#111111">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<title>フラッシュ通知</title>
+<style>
+  :root{
+    --bg:#111;--panel:#1c1c1e;--line:#2c2c2e;--text:#f5f5f7;--sub:#8e8e93;
+    --accent:#ff9f0a;--danger:#ff453a;--ok:#30d158;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+    -webkit-user-select:none;user-select:none;overscroll-behavior:none}
+  button{font:inherit;color:inherit;border:0;cursor:pointer}
+  input{font:inherit}
+
+  /* 開始画面 */
+  #start{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:24px;padding:40px;text-align:center}
+  #start h1{font-size:40px;margin:0}
+  #start p{color:var(--sub);font-size:18px;line-height:1.7;margin:0;max-width:560px}
+  #startBtn{background:var(--accent);color:#000;font-size:28px;font-weight:700;padding:22px 64px;border-radius:20px}
+
+  /* メイン */
+  #app{display:grid;grid-template-columns:1.2fr 1fr;height:100%;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  @media (orientation:portrait){#app{grid-template-columns:1fr;grid-template-rows:auto 1fr}}
+
+  .clockSide{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px;gap:10px}
+  #nowDate{font-size:26px;color:var(--sub)}
+  #nowTime{font-size:min(15vw,150px);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-2px;line-height:1}
+  #nextBox{margin-top:24px;background:var(--panel);border-radius:18px;padding:16px 26px;text-align:center;min-width:60%}
+  #nextBox .lbl{font-size:16px;color:var(--sub)}
+  #nextBox .val{font-size:30px;font-weight:700;margin-top:4px}
+  #status{font-size:14px;color:var(--sub);margin-top:8px}
+  #status.ok{color:var(--ok)}
+
+  .listSide{background:var(--panel);display:flex;flex-direction:column;min-height:0}
+  .form{padding:20px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+  .row{display:flex;gap:10px}
+  .form input[type=time],.form input[type=text]{background:#2c2c2e;border:0;border-radius:12px;color:var(--text);
+    padding:14px;font-size:22px;outline:none;-webkit-user-select:text;user-select:text}
+  .form input[type=time]{width:180px;flex:none}
+  .form input[type=text]{flex:1;min-width:0}
+  .seg{display:flex;background:#2c2c2e;border-radius:12px;padding:3px;flex:1}
+  .seg button{flex:1;padding:10px;border-radius:10px;font-size:17px;background:transparent;color:var(--sub)}
+  .seg button.on{background:#48484a;color:var(--text);font-weight:700}
+  #addBtn{background:var(--accent);color:#000;font-weight:700;font-size:20px;border-radius:12px;padding:0 26px}
+
+  #list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 12px 20px}
+  .item{display:flex;align-items:center;gap:14px;padding:14px 10px;border-bottom:1px solid var(--line)}
+  .item.off{opacity:.4}
+  .item .t{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;width:100px}
+  .item .x{flex:1;min-width:0}
+  .item .x .msg{font-size:21px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .x .rp{font-size:13px;color:var(--sub);margin-top:2px}
+  .item .tg{width:56px;height:34px;border-radius:17px;background:#48484a;position:relative;flex:none}
+  .item .tg::after{content:"";position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;background:#fff;transition:.2s}
+  .item .tg.on{background:var(--ok)}
+  .item .tg.on::after{left:25px}
+  .item .del{background:transparent;color:var(--danger);font-size:16px;padding:8px}
+  .empty{color:var(--sub);text-align:center;padding:40px 0;font-size:17px}
+  .foot{display:flex;gap:10px;padding:12px 20px;border-top:1px solid var(--line)}
+  .foot button{flex:1;background:#2c2c2e;border-radius:12px;padding:12px;font-size:16px}
+
+  /* 通知画面 */
+  #alarm{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:30px;gap:2vh}
+  #alarm.show{display:flex;animation:flash 1s steps(1) infinite}
+  @keyframes flash{
+    0%{background:#ff3b30;color:#fff}
+    25%{background:#fff;color:#000}
+    50%{background:#ffd60a;color:#000}
+    75%{background:#000;color:#fff}
+  }
+  #alarmTime{font-size:min(22vw,260px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  #alarmMsg{font-size:min(11vw,130px);font-weight:800;line-height:1.15;word-break:break-all}
+  #alarmHint{font-size:22px;opacity:.85;margin-top:3vh}
+</style>
+</head>
+<body>
+
+<div id="start">
+  <h1>フラッシュ通知</h1>
+  <p>登録した時間になると、画面が点滅して予定を大きく表示します。<br>
+     この画面を開いたままにしておいてください。<br>
+     下のボタンを押すと音と画面スリープ防止が有効になります。</p>
+  <button id="startBtn">開始する</button>
+</div>
+
+<div id="app">
+  <div class="clockSide">
+    <div id="nowDate"></div>
+    <div id="nowTime">--:--</div>
+    <div id="nextBox"><div class="lbl">次の予定</div><div class="val" id="nextVal">なし</div></div>
+    <div id="status"></div>
+  </div>
+
+  <div class="listSide">
+    <div class="form">
+      <div class="row">
+        <input type="time" id="inTime">
+        <input type="text" id="inMsg" placeholder="表示する文字（例：仕込み開始）" maxlength="40">
+      </div>
+      <div class="row">
+        <div class="seg" id="seg">
+          <button data-v="daily" class="on">毎日</button>
+          <button data-v="once">1回だけ</button>
+        </div>
+        <button id="addBtn">登録</button>
+      </div>
+    </div>
+    <div id="list"></div>
+    <div class="foot">
+      <button id="testBtn">点滅テスト</button>
+      <button id="soundBtn">音：ON</button>
+    </div>
+  </div>
+</div>
+
+<div id="alarm">
+  <div id="alarmTime"></div>
+  <div id="alarmMsg"></div>
+  <div id="alarmHint">画面をタップして止める</div>
+</div>
+
+<script>
+const KEY = 'flashAlarm.v1';
+let state = load();
+let repeatMode = 'daily';
+let audioCtx = null, beepTimer = null, wakeLock = null;
+const queue = [];
+
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if(s && Array.isArray(s.items)) return Object.assign({sound:true}, s);
+  }catch(e){}
+  return {items:[], sound:true};
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+const pad = n => String(n).padStart(2,'0');
+const hm = d => pad(d.getHours())+':'+pad(d.getMinutes());
+const dayKey = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- 一覧 ---------- */
+function render(){
+  const list = document.getElementById('list');
+  const items = [...state.items].sort((a,b)=>a.time.localeCompare(b.time));
+  if(!items.length){ list.innerHTML = '<div class="empty">予定がありません。上から登録してください。</div>'; }
+  else list.innerHTML = items.map(it => `
+    <div class="item ${it.on?'':'off'}">
+      <div class="t">${it.time}</div>
+      <div class="x"><div class="msg">${esc(it.msg)}</div><div class="rp">${it.repeat==='daily'?'毎日':'1回だけ'}</div></div>
+      <button class="tg ${it.on?'on':''}" data-tg="${it.id}" aria-label="オンオフ"></button>
+      <button class="del" data-del="${it.id}">削除</button>
+    </div>`).join('');
+  document.getElementById('soundBtn').textContent = '音：' + (state.sound?'ON':'OFF');
+  updateNext(new Date());
+}
+
+document.getElementById('list').addEventListener('click', e=>{
+  const tg = e.target.closest('[data-tg]'), del = e.target.closest('[data-del]');
+  if(tg){ const it = state.items.find(i=>i.id===tg.dataset.tg); it.on = !it.on; if(it.on) it.last=''; save(); render(); }
+  if(del){
+    const it = state.items.find(i=>i.id===del.dataset.del);
+    if(confirm(`「${it.time} ${it.msg}」を削除しますか？`)){
+      state.items = state.items.filter(i=>i.id!==it.id); save(); render();
+    }
+  }
+});
+
+document.getElementById('seg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  repeatMode = b.dataset.v;
+  document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on', x===b));
+});
+
+document.getElementById('addBtn').addEventListener('click', ()=>{
+  const t = document.getElementById('inTime').value;
+  const m = document.getElementById('inMsg').value.trim();
+  if(!t){ alert('時間を入れてください'); return; }
+  if(!m){ alert('表示する文字を入れてください'); return; }
+  // 今の分と同じ時刻を登録した場合はすぐ鳴らさない
+  const now = new Date();
+  state.items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    time:t, msg:m, repeat:repeatMode, on:true, last: t===hm(now) ? dayKey(now) : ''});
+  save(); render();
+  document.getElementById('inMsg').value='';
+  document.getElementById('inMsg').blur();
+});
+
+document.getElementById('soundBtn').addEventListener('click', ()=>{ state.sound=!state.sound; save(); render(); });
+document.getElementById('testBtn').addEventListener('click', ()=>{
+  fire({time:hm(new Date()), msg:'テスト表示'});
+});
+
+/* ---------- 時計と判定 ---------- */
+function updateNext(now){
+  const cur = hm(now), today = dayKey(now);
+  const on = state.items.filter(i=>i.on).sort((a,b)=>a.time.localeCompare(b.time));
+  const next = on.find(i=>i.time>cur && i.last!==today) || on.find(i=>i.repeat==='daily');
+  document.getElementById('nextVal').textContent = next ? `${next.time}　${next.msg}` : 'なし';
+}
+
+const W = ['日','月','火','水','木','金','土'];
+function tick(){
+  const now = new Date();
+  document.getElementById('nowTime').textContent = hm(now);
+  document.getElementById('nowDate').textContent =
+    `${now.getMonth()+1}月${now.getDate()}日（${W[now.getDay()]}）`;
+
+  const cur = hm(now), today = dayKey(now);
+  let changed = false;
+  state.items.forEach(it=>{
+    if(it.on && it.time===cur && it.last!==today){
+      it.last = today;
+      if(it.repeat==='once') it.on = false;
+      changed = true;
+      fire(it);
+    }
+  });
+  if(changed){ save(); render(); } else updateNext(now);
+}
+
+/* ---------- 通知 ---------- */
+function fire(it){
+  queue.push({time:it.time, msg:it.msg});
+  if(!document.getElementById('alarm').classList.contains('show')) showNext();
+}
+function showNext(){
+  const a = queue.shift(); if(!a) return;
+  document.getElementById('alarmTime').textContent = a.time;
+  document.getElementById('alarmMsg').textContent = a.msg;
+  document.getElementById('alarm').classList.add('show');
+  startBeep();
+}
+document.getElementById('alarm').addEventListener('click', ()=>{
+  document.getElementById('alarm').classList.remove('show');
+  stopBeep();
+  if(queue.length) setTimeout(showNext, 300);
+});
+
+function startBeep(){
+  stopBeep();
+  if(!state.sound || !audioCtx) return;
+  const beep = ()=>{
+    [0, 0.25, 0.5].forEach(off=>{
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type='square'; o.frequency.value=1000;
+      const t = audioCtx.currentTime+off;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.4,t+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.18);
+      o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t+0.2);
+    });
+  };
+  beep(); beepTimer = setInterval(beep, 1500);
+  // 5分鳴ったら音だけ止める（点滅は続く）
+  setTimeout(stopBeep, 5*60*1000);
+}
+function stopBeep(){ if(beepTimer){ clearInterval(beepTimer); beepTimer=null; } }
+
+/* ---------- スリープ防止 ---------- */
+async function keepAwake(){
+  const st = document.getElementById('status');
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+      st.textContent = '画面スリープ防止：有効'; st.className='ok';
+      wakeLock.addEventListener('release', ()=>{ st.textContent='画面スリープ防止：解除（画面をタップで再開）'; st.className=''; });
+    }else{
+      st.textContent = 'この端末はスリープ防止に非対応。設定で自動ロックを「なし」にしてください'; st.className='';
+    }
+  }catch(e){
+    st.textContent = 'スリープ防止を開始できませんでした。設定で自動ロックを「なし」にしてください'; st.className='';
+  }
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible'){ tick(); if(!wakeLock || wakeLock.released) keepAwake(); }
+});
+document.addEventListener('click', ()=>{
+  if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+  if(wakeLock && wakeLock.released) keepAwake();
+});
+
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  try{
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    g.gain.value = 0.0001; o.connect(g).connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.05);
+  }catch(e){}
+  keepAwake();
+  document.getElementById('start').style.display='none';
+});
+
+/* ---------- 起動 ---------- */
+(function init(){
+  // 時間入力の初期値を「次の0分」に
+  const n = new Date(); n.setHours(n.getHours()+1, 0);
+  document.getElementById('inTime').value = hm(n);
+  // 起動前に過ぎた今日の予定は鳴らさない
+  const cur = hm(new Date()), today = dayKey(new Date());
+  state.items.forEach(it=>{ if(it.on && it.time<cur && it.last!==today && it.repeat==='daily') it.last = today; });
+  save(); render(); tick();
+  // 秒の切り替わりに合わせて毎秒チェック
+  setTimeout(()=>{ tick(); setInterval(tick, 1000); }, 1000 - Date.now()%1000);
+  if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
