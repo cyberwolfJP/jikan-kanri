@@ -1,6 +1,6 @@
 // オフラインでも起動できるようにするためのファイル。
 // ツールを更新したら VERSION の数字を1つ上げてアップし直してください。
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE = 'jikan-kanri-' + VERSION;
 const APP = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
@@ -23,8 +23,6 @@ self.addEventListener('fetch', e => {
   if (url.origin === location.origin && url.pathname.includes('/shift/')) return;
   // フラッシュ通知（flash-alarm フォルダ）も別アプリ
   if (url.origin === location.origin && url.pathname.includes('/flash-alarm/')) return;
-  // ホールTR特化アプリ（hall-tr フォルダ）も別アプリ
-  if (url.origin === location.origin && url.pathname.includes('/hall-tr/')) return;
 
   // 画面本体：ネットにつながっていれば最新版、つながらなければ保存済みの版
   if (req.mode === 'navigate') {
